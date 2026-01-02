@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Tint – 3D Interactive Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <!-- Three.js -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      color: white;
+      font-family: Inter, system-ui, -apple-system;
+      overflow-x: hidden;
+    }
+
+    .ui {
+      position: absolute;
+      top: 50%;
+      right: 24px;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 20px;
+      width: 220px;
+      z-index: 10;
+    }
+
+    .ui h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .ui p {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-bottom: 14px;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.4);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover,
+    button.active {
+      background: #38bdf8;
+      color: black;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.35);
+    }
+
+    canvas {
+      display: block;
+    }
+
+    @media (max-width: 900px) {
+      .ui {
+        position: fixed;
+        bottom: 16px;
+        top: auto;
+        right: 50%;
+        transform: translateX(50%);
+        width: calc(100% - 32px);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="ui">
+  <h2>Pick Your Tint</h2>
+  <p>Tap to change tint intensity in real time</p>
+
+  <div class="buttons">
+    <button data-level="0.05">Clear</button>
+    <button data-level="0.2">70%</button>
+    <button data-level="0.35">35%</button>
+    <button data-level="0.5">25%</button>
+    <button data-level="0.7">15%</button>
+    <button data-level="0.85">5%</button>
+  </div>
+</div>
+
+<script>
+  // SCENE
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x020617, 6, 14);
+
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+  );
+  camera.position.set(0, 0, 6);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
+
+  // LIGHTS
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+
+  const keyLight = new THREE.DirectionalLight(0x9bdcff, 1.4);
+  keyLight.position.set(3, 2, 4);
+  scene.add(keyLight);
+
+  const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  rimLight.position.set(-3, 1, -4);
+  scene.add(rimLight);
+
+  // GLASS MATERIAL (SMART TINT)
+  const glassMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x0a0a0a,
+    metalness: 0,
+    roughness: 0.05,
+    transmission: 1,
+    thickness: 0.8,
+    ior: 1.45,
+    transparent: true,
+    opacity: 0.15,
+    envMapIntensity: 1.4,
+    clearcoat: 1,
+    clearcoatRoughness: 0.1
+  });
+
+  // GLASS PANEL
+  const geometry = new THREE.PlaneGeometry(4.5, 2.6);
+  const glass = new THREE.Mesh(geometry, glassMaterial);
+  scene.add(glass);
+
+  // FLOATING FRAME (DEPTH)
+  const frame = new THREE.Mesh(
+    new THREE.BoxGeometry(4.7, 2.8, 0.1),
+    new THREE.MeshStandardMaterial({
+      color: 0x020617,
+      metalness: 0.4,
+      roughness: 0.3
+    })
+  );
+  frame.position.z = -0.06;
+  scene.add(frame);
+
+  // INTERACTION
+  let targetX = 0;
+  let targetY = 0;
+
+  window.addEventListener("mousemove", (e) => {
+    targetX = (e.clientX / window.innerWidth - 0.5) * 0.6;
+    targetY = (e.clientY / window.innerHeight - 0.5) * 0.4;
+  });
+
+  // BUTTONS
+  document.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      glass.material.opacity = parseFloat(btn.dataset.level);
+    });
+  });
+
+  // DEFAULT
+  document.querySelector("button").classList.add("active");
+
+  // RESIZE
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ANIMATE
+  function animate() {
+    glass.rotation.y += (targetX - glass.rotation.y) * 0.05;
+    glass.rotation.x += (targetY - glass.rotation.x) * 0.05;
+    frame.rotation.copy(glass.rotation);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+
+</body>
+</html>
